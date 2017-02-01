@@ -105,13 +105,20 @@ reserved() ->
 		    $#, $[, $], $<, $>, $\", ${, $}, $|,
 			       $\\, $', $^, $%, $ ]).
 
-encode(URI) ->
+encode(URI) when is_list(URI) ->
     Reserved = reserved(), 
-    lists:append([uri_encode(Char, Reserved) || Char <- URI]).
+    lists:append([uri_encode(Char, Reserved) || Char <- URI]);
+encode(URI) when is_binary(URI) ->
+    Reserved = reserved(),
+    << <<(uri_encode_binary(Char, Reserved))/binary>> || <<Char>> <= URI >>.
 
-decode(String) ->
-    do_decode(String).
+decode(String) when is_list(String) ->
+    do_decode(String);
+decode(String) when is_binary(String) ->
+    do_decode_binary(String).
 
+do_decode([$+|Rest]) ->
+    [$ |do_decode(Rest)];
 do_decode([$%,Hex1,Hex2|Rest]) ->
     [hex2dec(Hex1)*16+hex2dec(Hex2)|do_decode(Rest)];
 do_decode([First|Rest]) ->
@@ -119,6 +126,14 @@ do_decode([First|Rest]) ->
 do_decode([]) ->
     [].
 
+do_decode_binary(<<$+, Rest/bits>>) ->
+    <<$ , (do_decode_binary(Rest))/binary>>;
+do_decode_binary(<<$%, Hex:2/binary, Rest/bits>>) ->
+    <<(binary_to_integer(Hex, 16)), (do_decode_binary(Rest))/binary>>;
+do_decode_binary(<<First:1/binary, Rest/bits>>) ->
+    <<First/binary, (do_decode_binary(Rest))/binary>>;
+do_decode_binary(<<>>) ->
+    <<>>.
 
 %%%========================================================================
 %%% Internal functions
@@ -232,6 +247,14 @@ uri_encode(Char, Reserved) ->
 	    [ $% | http_util:integer_to_hexlist(Char)];
 	false ->
 	    [Char]
+    end.
+
+uri_encode_binary(Char, Reserved) ->
+    case sets:is_element(Char, Reserved) of
+        true ->
+            << $%, (integer_to_binary(Char, 16))/binary >>;
+        false ->
+            <<Char>>
     end.
 
 hex2dec(X) when (X>=$0) andalso (X=<$9) -> X-$0;

@@ -50,7 +50,8 @@ all() ->
      fragments,
      escaped,
      hexed_query,
-     scheme_validation
+     scheme_validation,
+     encode_decode
     ].
 
 %%--------------------------------------------------------------------
@@ -195,6 +196,17 @@ scheme_validation(Config) when is_list(Config) ->
     {ok, {https,[],"localhost",443,"/",""}} =
 	http_uri:parse("https://localhost#fragment",
 		       [{scheme_validation_fun, none}]).
+
+encode_decode(Config) when is_list(Config) ->
+    ?assertEqual("foo%20bar", http_uri:encode("foo bar")),
+    ?assertEqual(<<"foo%20bar">>, http_uri:encode(<<"foo bar">>)),
+
+    ?assertEqual("foo bar", http_uri:decode("foo+bar")),
+    ?assertEqual(<<"foo bar">>, http_uri:decode(<<"foo+bar">>)),
+    ?assertEqual("foo bar", http_uri:decode("foo%20bar")),
+    ?assertEqual(<<"foo bar">>, http_uri:decode(<<"foo%20bar">>)),
+    ?assertEqual("foo\r\n", http_uri:decode("foo%0D%0A")),
+    ?assertEqual(<<"foo\r\n">>, http_uri:decode(<<"foo%0D%0A">>)).
 
 
 %%--------------------------------------------------------------------
