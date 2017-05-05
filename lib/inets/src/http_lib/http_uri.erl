@@ -180,6 +180,22 @@ extract_scheme(Str, Opts) ->
 	    {ok, list_to_atom(http_util:to_lower(Str))}
     end.
 
+parse_uri_rest(Scheme, DefaultPort, <<"//", URIPart/binary>>, Opts) ->
+    {Authority, PathQueryFragment} =
+        split_uri(URIPart, "[/?#]", {URIPart, <<"">>}, 1, 0),
+    {RawPath, QueryFragment} =
+        split_uri(PathQueryFragment, "[?#]", {PathQueryFragment, <<"">>}, 1, 0),
+    {Query, Fragment} =
+        split_uri(QueryFragment, "#", {QueryFragment, <<"">>}, 1, 0),
+    {UserInfo, HostPort} = split_uri(Authority, "@", {<<"">>, Authority}, 1, 1),
+    {Host, Port}         = parse_host_port(Scheme, DefaultPort, HostPort, Opts),
+    Path                 = path(RawPath),
+    case lists:keyfind(fragment, 1, Opts) of
+        {fragment, true} ->
+            {ok, {Scheme, UserInfo, Host, Port, Path, Query, Fragment}};
+        _ ->
+            {ok, {Scheme, UserInfo, Host, Port, Path, Query}}
+    end;
 parse_uri_rest(Scheme, DefaultPort, "//" ++ URIPart, Opts) ->
     {Authority, PathQueryFragment} =
         split_uri(URIPart, "[/?#]", {URIPart, ""}, 1, 0),
@@ -200,6 +216,11 @@ parse_uri_rest(Scheme, DefaultPort, "//" ++ URIPart, Opts) ->
 
 %% In this version of the function, we no longer need 
 %% the Scheme argument, but just in case...
+parse_host_port(_Scheme, DefaultPort, <<"[", HostPort/binary>>, Opts) -> %ipv6
+    {Host, ColonPort} = split_uri(HostPort, "\\]", {HostPort, <<"">>}, 1, 1),
+    Host2 = maybe_ipv6_host_with_brackets(Host, Opts),
+    {_, Port} = split_uri(ColonPort, ":", {<<"">>, DefaultPort}, 0, 1),
+    {Host2, int_port(Port)};
 parse_host_port(_Scheme, DefaultPort, "[" ++ HostPort, Opts) -> %ipv6
     {Host, ColonPort} = split_uri(HostPort, "\\]", {HostPort, ""}, 1, 1),
     Host2 = maybe_ipv6_host_with_brackets(Host, Opts),
@@ -213,12 +234,29 @@ parse_host_port(_Scheme, DefaultPort, HostPort, _Opts) ->
 split_uri(UriPart, SplitChar, NoMatchResult, SkipLeft, SkipRight) ->
     case re:run(UriPart, SplitChar, [{capture, first}]) of
 	{match, [{Match, _}]} ->
-	    {string:substr(UriPart, 1, Match + 1 - SkipLeft),
-	     string:substr(UriPart, Match + 1 + SkipRight, length(UriPart))};
+	    {substr(UriPart, 1, Match + 1 - SkipLeft),
+	     substr(UriPart, Match + 1 + SkipRight, string_length(UriPart))};
 	nomatch ->
 	    NoMatchResult
     end.
 
+string_length(Binary) when is_binary(Binary) ->
+    erlang:byte_size(Binary);
+string_length(String) when is_list(String) ->
+    length(String).
+
+substr(Binary, Pos, Len) when is_binary(Binary) ->
+    binary:part(Binary, Pos, Len);
+substr(String, Pos, Len) ->
+    string:part(String, Pos, Len);
+
+maybe_ipv6_host_with_brackets(Host, Opts) when is_binary(Host) ->
+    case lists:keysearch(ipv6_host_with_brackets, 1, Opts) of
+	{value, {ipv6_host_with_brackets, true}} ->
+	    <<"[", Host/binary, "]">>;
+	_ ->
+	    Host
+    end;
 maybe_ipv6_host_with_brackets(Host, Opts) ->
     case lists:keysearch(ipv6_host_with_brackets, 1, Opts) of
 	{value, {ipv6_host_with_brackets, true}} ->
@@ -230,12 +268,16 @@ maybe_ipv6_host_with_brackets(Host, Opts) ->
 
 int_port(Port) when is_integer(Port) ->
     Port;
+int_port(Port) when is_binary(Port) ->
+    binary_to_integer(Port);
 int_port(Port) when is_list(Port) ->
     list_to_integer(Port);
 %% This is the case where no port was found and there was no default port
 int_port(no_default_port) ->
     throw({error, no_default_port}).
 
+path(<<"">>) ->
+    <<"/">>;
 path("") ->
     "/";
 path(Path) ->
