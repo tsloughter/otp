@@ -21,33 +21,33 @@
 -module(http_util).
 
 -export([
-	 to_upper/1, to_lower/1, 
-	 convert_netscapecookie_date/1,
-	 hexlist_to_integer/1, integer_to_hexlist/1, 
-	 convert_month/1, 
-	 is_hostname/1,
-	 timestamp/0, timeout/2,
-	 html_encode/1
-	]).
+     to_upper/1, to_lower/1,
+     convert_netscapecookie_date/1,
+     hexlist_to_integer/1, integer_to_hexlist/1,
+     convert_month/1,
+     is_hostname/1,
+     timestamp/0, timeout/2,
+     html_encode/1
+    ]).
 
 
 %%%=========================================================================
 %%%  Internal application API
 %%%=========================================================================
 to_upper(Str) ->
-    string:to_upper(Str).
+    string:uppercase(Str).
 
 to_lower(Str) ->
-    string:to_lower(Str).
+    string:lowercase(Str).
 
 %% Example: Mon, 09-Dec-2002 13:46:00 GMT
 convert_netscapecookie_date([_D,_A,_Y, $,, $ ,
-			     D1,D2, $-,
-			     M,O,N, $-,
-			     Y1,Y2,Y3,Y4, $ ,
-			     H1,H2, $:,
-			     M1,M2, $:,
-			     S1,S2|_Rest]) -> 
+                 D1,D2, $-,
+                 M,O,N, $-,
+                 Y1,Y2,Y3,Y4, $ ,
+                 H1,H2, $:,
+                 M1,M2, $:,
+                 S1,S2|_Rest]) ->
     Year  = list_to_integer([Y1,Y2,Y3,Y4]),
     Day   = list_to_integer([D1,D2]),
     Month = convert_month([M,O,N]),
@@ -57,12 +57,12 @@ convert_netscapecookie_date([_D,_A,_Y, $,, $ ,
     {{Year,Month,Day},{Hour,Min,Sec}};
 
 convert_netscapecookie_date([_D,_A,_Y, $,, $ ,
-			     D1,D2, $-,
-			     M,O,N, $-,
-			     Y3,Y4, $ ,
-			     H1,H2, $:,
-			     M1,M2, $:,
-			     S1,S2|_Rest]) -> 
+                 D1,D2, $-,
+                 M,O,N, $-,
+                 Y3,Y4, $ ,
+                 H1,H2, $:,
+                 M1,M2, $:,
+                 S1,S2|_Rest]) ->
     {CurrentYear, _, _} = date(),
     [Y1,Y2|_] = integer_to_list(CurrentYear),
     Year      = list_to_integer([Y1,Y2,Y3,Y4]),
@@ -74,12 +74,12 @@ convert_netscapecookie_date([_D,_A,_Y, $,, $ ,
     {{Year,Month,Day},{Hour,Min,Sec}};
 
 convert_netscapecookie_date([_D,_A,_Y, $ ,
-			     D1,D2, $-,
-			     M,O,N, $-,
-			     Y1,Y2,Y3,Y4, $ ,
-			     H1,H2, $:,
-			     M1,M2, $:,
-			     S1,S2|_Rest]) -> 
+                 D1,D2, $-,
+                 M,O,N, $-,
+                 Y1,Y2,Y3,Y4, $ ,
+                 H1,H2, $:,
+                 M1,M2, $:,
+                 S1,S2|_Rest]) ->
     Year  = list_to_integer([Y1,Y2,Y3,Y4]),
     Day   = list_to_integer([D1,D2]),
     Month = convert_month([M,O,N]),
@@ -89,12 +89,12 @@ convert_netscapecookie_date([_D,_A,_Y, $ ,
     {{Year,Month,Day},{Hour,Min,Sec}};
 
 convert_netscapecookie_date([_D,_A,_Y, $ ,
-			     D1,D2, $-,
-			     M,O,N, $-,
-			     Y3,Y4, $ ,
-			     H1,H2, $:,
-			     M1,M2, $:,
-			     S1,S2|_Rest]) -> 
+                 D1,D2, $-,
+                 M,O,N, $-,
+                 Y3,Y4, $ ,
+                 H1,H2, $:,
+                 M1,M2, $:,
+                 S1,S2|_Rest]) ->
     {CurrentYear, _, _} = date(),
     [Y1,Y2|_] = integer_to_list(CurrentYear),
     Year      = list_to_integer([Y1,Y2,Y3,Y4]),
@@ -107,12 +107,12 @@ convert_netscapecookie_date([_D,_A,_Y, $ ,
 
 %% Example: Tue Jan 01 08:00:01 2036 GMT
 convert_netscapecookie_date([_D,_A,_Y, $ ,
-			     M,O,N, $ ,
-			     D1,D2, $ ,
-			     H1,H2, $:,
-			     M1,M2, $:,
-			     S1,S2, $ ,
-			     Y1,Y2,Y3,Y4, $ |_Rest]) -> 
+                 M,O,N, $ ,
+                 D1,D2, $ ,
+                 H1,H2, $:,
+                 M1,M2, $:,
+                 S1,S2, $ ,
+                 Y1,Y2,Y3,Y4, $ |_Rest]) ->
     Year  = list_to_integer([Y1,Y2,Y3,Y4]),
     Day   = list_to_integer([D1,D2]),
     Month = convert_month([M,O,N]),
@@ -160,7 +160,7 @@ integer_to_hexlist(Int) ->
 
 convert_month("Jan") -> 1;
 convert_month("Feb") -> 2;
-convert_month("Mar") -> 3; 
+convert_month("Mar") -> 3;
 convert_month("Apr") -> 4;
 convert_month("May") -> 5;
 convert_month("Jun") -> 6;
@@ -182,12 +182,12 @@ timestamp() ->
 timeout(Timeout, Started) ->
     %% NewTimeout = Timeout - (timestamp() - Started),
     case Timeout - (timestamp() - Started) of
-	NewTimeout when Timeout > 0 ->
-	    NewTimeout;
-	_ ->
-	    0
+    NewTimeout when Timeout > 0 ->
+        NewTimeout;
+    _ ->
+        0
     end.
-    
+
 
 html_encode(Chars) ->
     Reserved = sets:from_list([$&, $<, $>, $\", $', $/]),
@@ -200,8 +200,8 @@ html_encode(Chars) ->
 
 char_to_html_entity(Char, Reserved) ->
     case sets:is_element(Char, Reserved) of
-	true ->
-	    "&#" ++ integer_to_list(Char) ++ ";";
-	false ->
-	    [Char]
+    true ->
+        "&#" ++ integer_to_list(Char) ++ ";";
+    false ->
+        [Char]
     end.

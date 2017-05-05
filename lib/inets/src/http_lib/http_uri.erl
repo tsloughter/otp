@@ -17,20 +17,20 @@
 %%
 %% %CopyrightEnd%
 %%
-%% 
-%% This is from chapter 3, Syntax Components, of RFC 3986: 
-%% 
+%%
+%% This is from chapter 3, Syntax Components, of RFC 3986:
+%%
 %% The generic URI syntax consists of a hierarchical sequence of
 %% components referred to as the scheme, authority, path, query, and
 %% fragment.
-%% 
+%%
 %%    URI         = scheme ":" hier-part [ "?" query ] [ "#" fragment ]
-%% 
+%%
 %%    hier-part   = "//" authority path-abempty
 %%                   / path-absolute
 %%                   / path-rootless
 %%                   / path-empty
-%% 
+%%
 %%    The scheme and path components are required, though the path may be
 %%    empty (no characters).  When authority is present, the path must
 %%    either be empty or begin with a slash ("/") character.  When
@@ -38,9 +38,9 @@
 %%    characters ("//").  These restrictions result in five different ABNF
 %%    rules for a path (Section 3.3), only one of which will match any
 %%    given URI reference.
-%% 
+%%
 %%    The following are two example URIs and their component parts:
-%% 
+%%
 %%          foo://example.com:8042/over/there?name=ferret#nose
 %%          \_/   \______________/\_________/ \_________/ \__/
 %%           |           |            |            |        |
@@ -48,18 +48,18 @@
 %%           |   _____________________|__
 %%          / \ /                        \
 %%          urn:example:animal:ferret:nose
-%% 
+%%
 %%    scheme      = ALPHA *( ALPHA / DIGIT / "+" / "-" / "." )
 %%    authority   = [ userinfo "@" ] host [ ":" port ]
 %%    userinfo    = *( unreserved / pct-encoded / sub-delims / ":" )
-%%    
-%% 
+%%
+%%
 
 -module(http_uri).
 
--export([parse/1, parse/2, 
-	 scheme_defaults/0, 
-	 encode/1, decode/1]).
+-export([parse/1, parse/2,
+     scheme_defaults/0,
+     encode/1, decode/1]).
 
 -export_type([scheme/0, default_scheme_port_number/0]).
 
@@ -75,11 +75,11 @@
     [{scheme(), default_scheme_port_number()}].
 
 scheme_defaults() ->
-    [{http,  80}, 
-     {https, 443}, 
-     {ftp,   21}, 
-     {ssh,   22}, 
-     {sftp,  22}, 
+    [{http,  80},
+     {https, 443},
+     {ftp,   21},
+     {ssh,   22},
+     {sftp,  22},
      {tftp,  69}].
 
 parse(AbsURI) ->
@@ -87,26 +87,26 @@ parse(AbsURI) ->
 
 parse(AbsURI, Opts) ->
     case parse_scheme(AbsURI, Opts) of
-	{error, Reason} ->
-	    {error, Reason};
-	{Scheme, DefaultPort, Rest} ->
-	    case (catch parse_uri_rest(Scheme, DefaultPort, Rest, Opts)) of
+    {error, Reason} ->
+        {error, Reason};
+    {Scheme, DefaultPort, Rest} ->
+        case (catch parse_uri_rest(Scheme, DefaultPort, Rest, Opts)) of
                 {ok, Result} ->
                     {ok, Result};
-		{error, Reason} ->
-		    {error, {Reason, Scheme, AbsURI}};
-		_  ->
-		    {error, {malformed_url, Scheme, AbsURI}}
-	    end
+        {error, Reason} ->
+            {error, {Reason, Scheme, AbsURI}};
+        _  ->
+            {error, {malformed_url, Scheme, AbsURI}}
+        end
     end.
 
 reserved() ->
     sets:from_list([$;, $:, $@, $&, $=, $+, $,, $/, $?,
-		    $#, $[, $], $<, $>, $\", ${, $}, $|,
-			       $\\, $', $^, $%, $ ]).
+            $#, $[, $], $<, $>, $\", ${, $}, $|, %"
+                   $\\, $', $^, $%, $ ]).
 
 encode(URI) when is_list(URI) ->
-    Reserved = reserved(), 
+    Reserved = reserved(),
     lists:append([uri_encode(Char, Reserved) || Char <- URI]);
 encode(URI) when is_binary(URI) ->
     Reserved = reserved(),
@@ -140,45 +140,50 @@ do_decode_binary(<<>>) ->
 %%%========================================================================
 
 which_scheme_defaults(Opts) ->
-    Key = scheme_defaults, 
+    Key = scheme_defaults,
     case lists:keysearch(Key, 1, Opts) of
-	{value, {Key, SchemeDefaults}} ->
-	    SchemeDefaults;
-	false ->
-	    scheme_defaults()
+    {value, {Key, SchemeDefaults}} ->
+        SchemeDefaults;
+    false ->
+        scheme_defaults()
     end.
 
 parse_scheme(AbsURI, Opts) ->
     case split_uri(AbsURI, ":", {error, no_scheme}, 1, 1) of
-	{error, no_scheme} ->
-	    {error, no_scheme};
-	{SchemeStr, Rest} ->
-	    case extract_scheme(SchemeStr, Opts) of
-		{error, Error} ->
-		    {error, Error};
-		{ok, Scheme} ->
-		    SchemeDefaults = which_scheme_defaults(Opts),
-		    case lists:keysearch(Scheme, 1, SchemeDefaults) of
-			{value, {Scheme, DefaultPort}} ->
-			    {Scheme, DefaultPort, Rest};
-			false ->
-			    {Scheme, no_default_port, Rest}
-		    end
-	    end
+    {error, no_scheme} ->
+        {error, no_scheme};
+    {SchemeStr, Rest} ->
+        case extract_scheme(SchemeStr, Opts) of
+        {error, Error} ->
+            {error, Error};
+        {ok, Scheme} ->
+            SchemeDefaults = which_scheme_defaults(Opts),
+            case lists:keysearch(Scheme, 1, SchemeDefaults) of
+            {value, {Scheme, DefaultPort}} ->
+                {Scheme, DefaultPort, Rest};
+            false ->
+                {Scheme, no_default_port, Rest}
+            end
+        end
     end.
 
 extract_scheme(Str, Opts) ->
     case lists:keysearch(scheme_validation_fun, 1, Opts) of
-	{value, {scheme_validation_fun, Fun}} when is_function(Fun) ->
-	    case Fun(Str) of
-		valid ->
-		    {ok, list_to_atom(http_util:to_lower(Str))};
-		{error, Error} ->
-		    {error, Error}
-	    end;
-	_ ->
-	    {ok, list_to_atom(http_util:to_lower(Str))}
+    {value, {scheme_validation_fun, Fun}} when is_function(Fun) ->
+        case Fun(Str) of
+        valid ->
+            {ok, list_to_atom(http_util:to_lower(Str))};
+        {error, Error} ->
+            {error, Error}
+        end;
+    _ ->
+        {ok, to_atom(http_util:to_lower(Str))}
     end.
+
+to_atom(S) when is_list(S) ->
+    list_to_atom(S);
+to_atom(S) when is_binary(S) ->
+    binary_to_atom(S, utf8).
 
 parse_uri_rest(Scheme, DefaultPort, <<"//", URIPart/binary>>, Opts) ->
     {Authority, PathQueryFragment} =
@@ -214,7 +219,7 @@ parse_uri_rest(Scheme, DefaultPort, "//" ++ URIPart, Opts) ->
     end.
 
 
-%% In this version of the function, we no longer need 
+%% In this version of the function, we no longer need
 %% the Scheme argument, but just in case...
 parse_host_port(_Scheme, DefaultPort, <<"[", HostPort/binary>>, Opts) -> %ipv6
     {Host, ColonPort} = split_uri(HostPort, "\\]", {HostPort, <<"">>}, 1, 1),
@@ -233,38 +238,27 @@ parse_host_port(_Scheme, DefaultPort, HostPort, _Opts) ->
 
 split_uri(UriPart, SplitChar, NoMatchResult, SkipLeft, SkipRight) ->
     case re:run(UriPart, SplitChar, [{capture, first}]) of
-	{match, [{Match, _}]} ->
-	    {substr(UriPart, 1, Match + 1 - SkipLeft),
-	     substr(UriPart, Match + 1 + SkipRight, string_length(UriPart))};
-	nomatch ->
-	    NoMatchResult
+    {match, [{Match, _}]} ->
+        {string:slice(UriPart, 0, Match + 1 - SkipLeft),
+         string:slice(UriPart, Match + SkipRight, string:length(UriPart))};
+    nomatch ->
+        NoMatchResult
     end.
-
-string_length(Binary) when is_binary(Binary) ->
-    erlang:byte_size(Binary);
-string_length(String) when is_list(String) ->
-    length(String).
-
-substr(Binary, Pos, Len) when is_binary(Binary) ->
-    binary:part(Binary, Pos, Len);
-substr(String, Pos, Len) ->
-    string:part(String, Pos, Len);
 
 maybe_ipv6_host_with_brackets(Host, Opts) when is_binary(Host) ->
     case lists:keysearch(ipv6_host_with_brackets, 1, Opts) of
-	{value, {ipv6_host_with_brackets, true}} ->
-	    <<"[", Host/binary, "]">>;
-	_ ->
-	    Host
+    {value, {ipv6_host_with_brackets, true}} ->
+        <<"[", Host/binary, "]">>;
+    _ ->
+        Host
     end;
 maybe_ipv6_host_with_brackets(Host, Opts) ->
     case lists:keysearch(ipv6_host_with_brackets, 1, Opts) of
-	{value, {ipv6_host_with_brackets, true}} ->
-	    "[" ++ Host ++ "]";
-	_ ->
-	    Host
+    {value, {ipv6_host_with_brackets, true}} ->
+        "[" ++ Host ++ "]";
+    _ ->
+        Host
     end.
-
 
 int_port(Port) when is_integer(Port) ->
     Port;
@@ -285,10 +279,10 @@ path(Path) ->
 
 uri_encode(Char, Reserved) ->
     case sets:is_element(Char, Reserved) of
-	true ->
-	    [ $% | http_util:integer_to_hexlist(Char)];
-	false ->
-	    [Char]
+    true ->
+        [ $% | http_util:integer_to_hexlist(Char)];
+    false ->
+        [Char]
     end.
 
 uri_encode_binary(Char, Reserved) ->
